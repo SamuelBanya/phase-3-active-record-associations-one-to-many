@@ -1,0 +1,454 @@
+These are the commands I used for this assignment:
+
+The relationship of the tables in this assignment is 'one to many' in that there are 'games' with many different 'reviews'.
+
+We first created a 'games' table with the 'bundle exec rake db:create_migration NAME=create_games' command since we just needed to start out with games that we could later review:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake db:create_migration NAME=create_games
+
+db/migrate/20220903132121_create_games.rb
+#+end_src
+
+Within the 'db/migrate/20220903132121_create_games.rb' file, I used the following contents:
+#+begin_src ruby
+class CreateGames < ActiveRecord::Migration[6.1]
+  def change
+    create_table :games do |t|
+      t.string :title
+      t.string :genre
+      t.string :platform
+      t.integer :price
+      t.timestamps
+    end
+  end
+end
+#+end_src
+
+NOTE: In order to create a 'foreign key' relationship using the Active Record conventions, you need to specify the other name of the 'id' with '(other_table_name)_id'
+
+This is because the foreign key must match the name of the table where the primary key is located.
+
+Ex:
+We need the 'game_id' foreign key column in the 'reviews' table so that we can associate it with the primary key in the 'games' table.
+
+I then used the 'bundle exec rake db:create_migration NAME=create_reviews' command to create the related 'create_reviews' migration accordingly:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake db:create_migration NAME=create_reviews
+
+db/migrate/20220903132837_create_reviews.rb
+#+end_src
+
+I then placed the following contents inside the 'db/migrate/20220903132837_create_reviews.rb' file:
+#+begin_src ruby
+  class CreateReviews < ActiveRecord::Migration[6.1]
+    def change
+      create_table :reviews do |t|
+        t.integer :score
+        t.string :comment
+        # NOTE: This is the 'foreign key' for the 'games table:
+        t.integer :game_id
+        t.timestamps
+      end
+    end
+  end
+#+end_src
+
+I then ran the related migration with the 'bundle exec rake db:migrate' command:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake db:migrate
+
+== 20220903132121 CreateGames: migrating ======================================
+-- create_table(:games)
+   -> 0.0014s
+== 20220903132121 CreateGames: migrated (0.0014s) =============================
+
+== 20220903132837 CreateReviews: migrating ====================================
+-- create_table(:reviews)
+   -> 0.0006s
+== 20220903132837 CreateReviews: migrated (0.0006s) ===========================
+#+end_src
+
+I then seeded the database with the 'bundle exec rake db:seed' command:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake db:seed
+🌱 Seeding data...
+🌱 Done seeding!
+#+end_src
+
+I then used the 'bundle exec rake console' command so that I could explore the Active Record based macros that are available from the 'ActiveRecord::Base' class:
+#+begin_src bash
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake console
+
+[1] pry(main)> review = Review.first()
+
+D, [2022-09-03T09:36:57.277700 #3265] DEBUG -- :    (0.6ms)  SELECT sqlite_version(*)
+D, [2022-09-03T09:36:57.279858 #3265] DEBUG -- :   Review Load (0.1ms)  SELECT "reviews".* FROM "reviews" ORDER BY "reviews"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Review:0x00007fcc773b8198
+ id: 1,
+ score: 10,
+ comment: "In consequatur omnis voluptatem.",
+ game_id: 1,
+ created_at: 2022-09-03 13:32:36.166179 UTC,
+ updated_at: 2022-09-03 13:32:36.166179 UTC>
+
+[2] pry(main)> review.game_id()
+
+=> 1
+
+[3] pry(main)> Game.find(review.game_id)
+
+D, [2022-09-03T09:37:23.390573 #3265] DEBUG -- :   Game Load (0.2ms)  SELECT "games".* FROM "games" WHERE "games"."id" = ? LIMIT ?  [["id", 1], ["LIMIT", 1]]
+=> #<Game:0x00007fcc77933fa0
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+#+end_src
+
+Now that we were able to create a variable that referred to the first 'review' record found to determine it's 'game_id' to later then find the game itself in the 'games' table with the help of the 'Game' class's 'Game.find()' method, we can then modify the 'app/models/review.rb' file accordingly:
+#+begin_src ruby
+class Review < ActiveRecord::Base
+  # NOTE: A review belongs to a game:
+  def game
+    # 'self' is the 'Review' class instance:
+    Game.find(self.game_id)
+  end
+end
+#+end_src
+
+I then used 'rake console' again with these changes so that I can access the new '.game' method I just created above:
+#+begin_src ruby
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake console
+
+[1] pry(main)> Review.first.game()
+
+D, [2022-09-03T09:59:07.023389 #3784] DEBUG -- :    (1.8ms)  SELECT sqlite_version(*)
+D, [2022-09-03T09:59:07.025864 #3784] DEBUG -- :   Review Load (0.1ms)  SELECT "reviews".* FROM "reviews" ORDER BY "reviews"."id" ASC LIMIT ?  [["LIMIT", 1]]
+D, [2022-09-03T09:59:07.040846 #3784] DEBUG -- :   Game Load (0.1ms)  SELECT "games".* FROM "games" WHERE "games"."id" = ? LIMIT ?  [["id", 1], ["LIMIT", 1]]
+=> #<Game:0x00007f7f2727b160
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[2] pry(main)> Review.last.game()
+
+D, [2022-09-03T09:59:09.984013 #3784] DEBUG -- :   Review Load (0.3ms)  SELECT "reviews".* FROM "reviews" ORDER BY "reviews"."id" DESC LIMIT ?  [["LIMIT", 1]]
+D, [2022-09-03T09:59:09.984651 #3784] DEBUG -- :   Game Load (0.1ms)  SELECT "games".* FROM "games" WHERE "games"."id" = ? LIMIT ?  [["id", 50], ["LIMIT", 1]]
+=> #<Game:0x00007f7f24547b08
+ id: 50,
+ title: "Far Cry",
+ genre: "Tower defense",
+ platform: "PlayStation Portable",
+ price: 43,
+ created_at: 2022-09-03 13:32:36.463798 UTC,
+ updated_at: 2022-09-03 13:32:36.463798 UTC>
+#+end_src
+
+I then established the association to the 'games' table with the 'belongs_to :game' section here in the same 'app/models/review.rb' file:
+
+#+begin_src ruby
+class Review < ActiveRecord::Base
+  # NOTE: We use the 'belongs_to' macro so that we can establish the foreign key relationship to the
+  # 'games' table
+  belongs_to :game
+
+  # NOTE: This is the SQL statement that is being run by Active Record with the 'belongs_to' macro:
+  # SELECT "games".*
+  # FROM "games"
+  # WHERE "games"."id" = 1
+  # LIMIT 1;
+
+  # NOTE: The following section would have been required if we did not use the 'belongs_to'
+  # Active Record macro:
+
+  # NOTE: A review belongs to a game:
+  # def game
+  # 'self' is the 'Review' class instance:
+  # Game.find(self.game_id)
+  # end
+end
+#+end_src
+
+I then modified the 'app/models/game.rb' file with the following contents to include the 'has_many' macro to establish the relationship that the single game has many reviews associated with it:
+#+begin_src ruby
+class Game < ActiveRecord::Base
+  # NOTE: This uses the 'has_many' macro to establish the relationship that the single game
+  # has many reviews associated with it:
+  has_many :reviews
+end
+#+end_src
+
+I then tested my changes with 'bundle exec rake console':
+#+begin_src ruby
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake console
+
+[1] pry(main)> game = Game.first()
+
+D, [2022-09-03T10:12:35.316186 #4035] DEBUG -- :    (0.8ms)  SELECT sqlite_version(*)
+D, [2022-09-03T10:12:35.317985 #4035] DEBUG -- :   Game Load (0.1ms)  SELECT "games".* FROM "games" ORDER BY "games"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Game:0x00007fc10dda2a70
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[2] pry(main)> game.reviews()
+
+D, [2022-09-03T10:12:39.254489 #4035] DEBUG -- :   Review Load (1.6ms)  SELECT "reviews".* FROM "reviews" WHERE "reviews"."game_id" = ?  [["game_id", 1]]
+=> [#<Review:0x00007fc10de90ea0
+  id: 1,
+  score: 10,
+  comment: "In consequatur omnis voluptatem.",
+  game_id: 1,
+  created_at: 2022-09-03 13:32:36.166179 UTC,
+  updated_at: 2022-09-03 13:32:36.166179 UTC>,
+ #<Review:0x00007fc10de98e48
+  id: 2,
+  score: 2,
+  comment: "Laboriosam placeat fugit dolorum.",
+
+[3] pry(main)> game.reviews.count()
+
+D, [2022-09-03T10:12:45.533765 #4035] DEBUG -- :    (0.4ms)  SELECT COUNT(*) FROM "reviews" WHERE "reviews"."game_id" = ?  [["game_id", 1]]
+=> 2
+#+end_src
+
+I then proceeded to review more of what is offered from the related 'belongs_to :game' and 'has_many :reviews' Active Record macros I created:
+#+begin_src ruby
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake console
+
+[1] pry(main)> review = Review.first()
+
+D, [2022-09-03T10:18:03.696867 #4171] DEBUG -- :    (1.5ms)  SELECT sqlite_version(*)
+D, [2022-09-03T10:18:03.699171 #4171] DEBUG -- :   Review Load (0.1ms)  SELECT "reviews".* FROM "reviews" ORDER BY "reviews"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Review:0x00007fbf81201b18
+ id: 1,
+ score: 10,
+ comment: "In consequatur omnis voluptatem.",
+ game_id: 1,
+ created_at: 2022-09-03 13:32:36.166179 UTC,
+ updated_at: 2022-09-03 13:32:36.166179 UTC>
+
+[2] pry(main)> review.game()
+
+D, [2022-09-03T10:18:07.855296 #4171] DEBUG -- :   Game Load (0.1ms)  SELECT "games".* FROM "games" WHERE "games"."id" = ? LIMIT ?  [["id", 1], ["LIMIT", 1]]
+=> #<Game:0x00007fbf80ca4170
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[3] pry(main)> game = Game.first()
+
+D, [2022-09-03T10:18:13.836854 #4171] DEBUG -- :   Game Load (0.2ms)  SELECT "games".* FROM "games" ORDER BY "games"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Game:0x00007fbf8122b508
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[4] pry(main)> game.reviews()
+
+D, [2022-09-03T10:18:17.973218 #4171] DEBUG -- :   Review Load (0.3ms)  SELECT "reviews".* FROM "reviews" WHERE "reviews"."game_id" = ?  [["game_id", 1]]
+=> [#<Review:0x00007fbf7dbc1c38
+  id: 1,
+  score: 10,
+  comment: "In consequatur omnis voluptatem.",
+  game_id: 1,
+  created_at: 2022-09-03 13:32:36.166179 UTC,
+  updated_at: 2022-09-03 13:32:36.166179 UTC>,
+ #<Review:0x00007fbf7dbc1ad0
+  id: 2,
+  score: 2,
+  comment: "Laboriosam placeat fugit dolorum.",
+#+end_src
+
+I then proceeded to take advantage of the 'belongs_to' macro by creating another 'Review' class instance using the 'Game' instance I created as well within the 'bundle exec rake console', but also compared it to the original vanilla method of having to use the 'foreign key' first:
+#+begin_src ruby
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake console
+
+[1] pry(main)> # Using foreign key variation:
+
+[2] pry(main)> game = Game.first()
+
+D, [2022-09-03T10:21:11.930781 #4259] DEBUG -- :    (1.4ms)  SELECT sqlite_version(*)
+D, [2022-09-03T10:21:11.933488 #4259] DEBUG -- :   Game Load (0.1ms)  SELECT "games".* FROM "games" ORDER BY "games"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Game:0x00007fede0b85058
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[3] pry(main)> Review.create(score: 10, comment: "10 stars", game_id: game.id)
+
+D, [2022-09-03T10:21:29.882868 #4259] DEBUG -- :   TRANSACTION (0.1ms)  begin transaction
+D, [2022-09-03T10:21:29.884653 #4259] DEBUG -- :   Review Create (1.4ms)  INSERT INTO "reviews" ("score", "comment", "game_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?)  [["score", 10], ["comment", "10 stars"], ["game_id", 1], ["created_at", "2022-09-03 14:21:29.881982"], ["updated_at", "2022-09-03 14:21:29.881982"]]
+D, [2022-09-03T10:21:29.886796 #4259] DEBUG -- :   TRANSACTION (1.9ms)  commit transaction
+=> #<Review:0x00007fede1431fa8
+ id: 148,
+ score: 10,
+ comment: "10 stars",
+ game_id: 1,
+ created_at: 2022-09-03 14:21:29.881982 UTC,
+ updated_at: 2022-09-03 14:21:29.881982 UTC>
+
+[4] pry(main)> # Using 'belongs_to' macro:
+[5] pry(main)> # to pass in the entire 'Game' instance directly instead of having to use a foreign key:
+
+[6] pry(main)> game = Game.first()
+
+D, [2022-09-03T10:22:06.768461 #4259] DEBUG -- :   Game Load (0.2ms)  SELECT "games".* FROM "games" ORDER BY "games"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Game:0x00007fede0b2f5e0
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[7] pry(main)> Review.create(score: 10, comment: "10 stars", game: game)
+
+D, [2022-09-03T10:22:24.541897 #4259] DEBUG -- :   TRANSACTION (0.1ms)  begin transaction
+D, [2022-09-03T10:22:24.542680 #4259] DEBUG -- :   Review Create (0.6ms)  INSERT INTO "reviews" ("score", "comment", "game_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?)  [["score", 10], ["comment", "10 stars"], ["game_id", 1], ["created_at", "2022-09-03 14:22:24.541522"], ["updated_at", "2022-09-03 14:22:24.541522"]]
+D, [2022-09-03T10:22:24.544041 #4259] DEBUG -- :   TRANSACTION (1.1ms)  commit transaction
+=> #<Review:0x00007fede430ae38
+ id: 149,
+ score: 10,
+ comment: "10 stars",
+ game_id: 1,
+ created_at: 2022-09-03 14:22:24.541522 UTC,
+ updated_at: 2022-09-03 14:22:24.541522 UTC>
+#+end_src
+
+Apparently, this is the related SQL being used under the hood with the 'belongs_to' macro:
+#+begin_src sql
+INSERT into "reviews" ("score", "comment", "game_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?)
+#+end_src
+
+I then used the 'create_game' method from the 'Review' class to create a new game from scratch and to associate it with a review:
+
+NOTE: This process does the following actions:
+- This will insert a row into the 'reviews' table
+- It will then insert a row into the 'games' table
+- It will then update the 'review' table with the foreign key of the new game we created
+#+begin_src ruby
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake console
+
+[1] pry(main)> # Create a review:
+[2] pry(main)> review = Review.create(score: 8, comment: "wow, what a game")
+
+D, [2022-09-03T10:26:15.398836 #4362] DEBUG -- :    (0.8ms)  SELECT sqlite_version(*)
+D, [2022-09-03T10:26:15.418545 #4362] DEBUG -- :   TRANSACTION (0.0ms)  begin transaction
+D, [2022-09-03T10:26:15.419839 #4362] DEBUG -- :   Review Create (1.0ms)  INSERT INTO "reviews" ("score", "comment", "created_at", "updated_at") VALUES (?, ?, ?, ?)  [["score", 8], ["comment", "wow, what a game"], ["created_at", "2022-09-03 14:26:15.410882"], ["updated_at", "2022-09-03 14:26:15.410882"]]
+D, [2022-09-03T10:26:15.421814 #4362] DEBUG -- :   TRANSACTION (1.7ms)  commit transaction
+=> #<Review:0x00007f9abd2a1b88
+ id: 151,
+ score: 8,
+ comment: "wow, what a game",
+ game_id: nil,
+ created_at: 2022-09-03 14:26:15.410882 UTC,
+ updated_at: 2022-09-03 14:26:15.410882 UTC>
+
+[3] pry(main)> # Create a game associated with the review:
+[4] pry(main)> review.create_game(title: "My favorite game")
+
+D, [2022-09-03T10:26:42.064434 #4362] DEBUG -- :   TRANSACTION (0.0ms)  begin transaction
+D, [2022-09-03T10:26:42.065777 #4362] DEBUG -- :   Game Create (0.8ms)  INSERT INTO "games" ("title", "created_at", "updated_at") VALUES (?, ?, ?)  [["title", "My favorite game"], ["created_at", "2022-09-03 14:26:42.063951"], ["updated_at", "2022-09-03 14:26:42.063951"]]
+D, [2022-09-03T10:26:42.068099 #4362] DEBUG -- :   TRANSACTION (2.0ms)  commit transaction
+=> #<Game:0x00007f9abf017be0
+ id: 51,
+ title: "My favorite game",
+ genre: nil,
+ platform: nil,
+ price: nil,
+ created_at: 2022-09-03 14:26:42.063951 UTC,
+ updated_at: 2022-09-03 14:26:42.063951 UTC>
+
+[5] pry(main)> # Save the association:
+[6] pry(main)> review.save()
+D, [2022-09-03T10:26:49.277439 #4362] DEBUG -- :   TRANSACTION (0.1ms)  begin transaction
+D, [2022-09-03T10:26:49.278412 #4362] DEBUG -- :   Review Update (0.7ms)  UPDATE "reviews" SET "game_id" = ?, "updated_at" = ? WHERE "reviews"."id" = ?  [["game_id", 51], ["updated_at", "2022-09-03 14:26:49.275400"], ["id", 151]]
+D, [2022-09-03T10:26:49.280249 #4362] DEBUG -- :   TRANSACTION (1.4ms)  commit transaction
+=> true
+#+end_src
+
+I then explored the 'has_many' macro to use the '<<' shovel method to generate a new review and to associate it with an existing game:
+#+begin_src ruby
+samuelbanya@Samuels-MBP ~/hub/Development/code/phase-3/phase-3-active-record-associations-one-to-many $ bundle exec rake console
+
+[1] pry(main)> game = Game.first()
+
+D, [2022-09-03T10:30:00.308462 #4391] DEBUG -- :    (2.3ms)  SELECT sqlite_version(*)
+D, [2022-09-03T10:30:00.311225 #4391] DEBUG -- :   Game Load (0.1ms)  SELECT "games".* FROM "games" ORDER BY "games"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Game:0x00007fbed4308140
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[2] pry(main)> game.reviews << Review.new(score: 3, comment: "meh")
+
+D, [2022-09-03T10:30:36.625227 #4391] DEBUG -- :   TRANSACTION (0.0ms)  begin transaction
+D, [2022-09-03T10:30:36.626554 #4391] DEBUG -- :   Review Create (0.9ms)  INSERT INTO "reviews" ("score", "comment", "game_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?)  [["score", 3], ["comment", "meh"], ["game_id", 1], ["created_at", "2022-09-03 14:30:36.624791"], ["updated_at", "2022-09-03 14:30:36.624791"]]
+D, [2022-09-03T10:30:36.628500 #4391] DEBUG -- :   TRANSACTION (1.5ms)  commit transaction
+D, [2022-09-03T10:30:36.632381 #4391] DEBUG -- :   Review Load (0.2ms)  SELECT "reviews".* FROM "reviews" WHERE "reviews"."game_id" = ?  [["game_id", 1]]
+=> [#<Review:0x00007fbed4341148
+  id: 1,
+  score: 10,
+  comment: "In consequatur omnis voluptatem.",
+  game_id: 1,
+  created_at: 2022-09-03 13:32:36.166179 UTC,
+  updated_at: 2022-09-03 13:32:36.166179 UTC>,
+ #<Review:0x00007fbed4340fb8
+  id: 2,
+  score: 2,
+  comment: "Laboriosam placeat fugit dolorum.",
+
+[3] pry(main)> # This generates the '#create' method via the association:
+[4] pry(main)> game = Game.first()
+
+D, [2022-09-03T10:30:59.173345 #4391] DEBUG -- :   Game Load (0.2ms)  SELECT "games".* FROM "games" ORDER BY "games"."id" ASC LIMIT ?  [["LIMIT", 1]]
+=> #<Game:0x00007fbed0b2c0c8
+ id: 1,
+ title: "Hitman: Absolution",
+ genre: "Real-time tactics",
+ platform: "Wii",
+ price: 28,
+ created_at: 2022-09-03 13:32:36.160527 UTC,
+ updated_at: 2022-09-03 13:32:36.160527 UTC>
+
+[5] pry(main)> game.reviews.create(score: 4, comment: "it's alright I guess")
+D, [2022-09-03T10:31:15.654731 #4391] DEBUG -- :   TRANSACTION (0.1ms)  begin transaction
+D, [2022-09-03T10:31:15.655908 #4391] DEBUG -- :   Review Create (0.9ms)  INSERT INTO "reviews" ("score", "comment", "game_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?)  [["score", 4], ["comment", "it's alright I guess"], ["game_id", 1], ["created_at", "2022-09-03 14:31:15.654254"], ["updated_at", "2022-09-03 14:31:15.654254"]]
+D, [2022-09-03T10:31:15.657604 #4391] DEBUG -- :   TRANSACTION (1.5ms)  commit transaction
+=> #<Review:0x00007fbed4c263d0
+ id: 153,
+ score: 4,
+ comment: "it's alright I guess",
+ game_id: 1,
+ created_at: 2022-09-03 14:31:15.654254 UTC,
+ updated_at: 2022-09-03 14:31:15.654254 UTC>
+#+end_src
